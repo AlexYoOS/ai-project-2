@@ -4,3 +4,5 @@ gspread
 torchvision
 torch
 matplotlib
+keras
+tensorflow
