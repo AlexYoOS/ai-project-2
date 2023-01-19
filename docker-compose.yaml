@@ -1,0 +1,10 @@
+version: '3.7'
+
+services:
+  dev:
+    build: .
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      DEV_ENVIRONMENT: 'TRUE'

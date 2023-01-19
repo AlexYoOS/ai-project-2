@@ -1,0 +1,19 @@
+datasets:
+    - name: credit_dataset
+      file_name: credit.csv
+      input_files:
+        input_file_name: credit.csv
+        input_file_cols:
+            - 'date'
+            - 'transaction_amount'
+            - 'merchant'
+            - 'file_name'
+    - name: saving_dataset
+      file_name: saving.csv
+      input_files:
+        input_file_name: saving.csv
+        input_file_cols:
+            - 'date'
+            - 'transaction_amount'
+            - 'merchant'
+            - 'file_name'

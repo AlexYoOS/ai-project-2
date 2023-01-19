@@ -1,0 +1,8 @@
+#!/bin/bash -e
+
+cd $(dirname $0)/..
+
+docker build -f Dockerfile -t my_image .
+docker run -it --name my_container my_image
+docker run --mount type=volume,src="$(pwd)",dst=/app,readwrite
+docker run -it -p 8888:8888 -v "$(pwd)":/app -w /app --name my_container --restart always ubuntu bash /app/auto/jupyter_startup.sh

@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+/workspaces/ai-project-2/data/
+/workspaces/ai-project-2/output/
+/workspaces/ai-project-2/src/flowers/
+
+
 # Distribution / packaging
 .Python
 build/
