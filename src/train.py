@@ -1,32 +1,47 @@
 import sys
 import utils
 import json
+import torch
+import torch.nn as nn
+from torchvision import datasets, transforms, models
+from collections import OrderedDict
+import argparse
+import logging
 
-print("This is a training file")
+logger = logging.getLogger(__name__)
 
-def cat_to_name()
+def cat_to_name():
     
+    logger.info(f"reading cat_to_name...")
     with open('cat_to_name.json', 'r') as f:
-    cat_to_name = json.load(f)
+        cat_to_name = json.load(f)
     
     return cat_to_name
 
-
 def main():
     
-    directory = sys.argv[1]
-    data_loaders, class_to_idx = utils.prepare_data(directory)
+    data_dir = args.data_dir
+    hidden_units = args.hidden_units
+    learning_rate = args.learning_rate
+    epochs = args.epochs
+    use_gpu = args.gpu
     
+    print(data_dir)
+    
+    data_loaders, class_to_idx = utils.prepare_data(data_dir)
+    
+    logger.info(f"defining model...")
     model = models.vgg16(pretrained=True)
 
     for param in model.parameters():
         param.requires_grad = False
 
+    logger.info(f"defining classifier...")
     classifier = nn.Sequential(OrderedDict([
                             ('fc1', nn.Linear(25088, 4096)),
                             ('relu', nn.ReLU()),
                             ('dropout', nn.Dropout(0.5)),
-                            ('fc2', nn.Linear(4096, 102)),
+                            ('fc2', nn.Linear(hidden_units, 102)),
                             ('output', nn.LogSoftmax(dim=1))
                             ]))
 
@@ -34,12 +49,14 @@ def main():
 
     # Set the loss function and optimizer
     criterion = torch.nn.NLLLoss()
-    optimizer = torch.optim.Adam(model.classifier.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.classifier.parameters(), lr=learning_rate)
     
-    epochs = 20
+    logger.info(f"running training...")
+    epochs = epochs
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     for epoch in range(epochs):
+        logger.info(f"epoch {epoch}...")
         train_loss = 0
         for images, labels in data_loaders['train_loader']:
             images, labels = images.to(device), labels.to(device)
@@ -54,7 +71,8 @@ def main():
             accuracy = 0
             with torch.no_grad():
                 model.eval()
-                for images, labels in valid_loader:
+                for images, labels in data_loaders['valid_loader']:
+                    logger.info(f"performing validation for epoch {epoch}...")
                     images, labels = images.to(device), labels.to(device)
                     logps = model(images)
                     loss = criterion(logps, labels)
@@ -71,6 +89,7 @@ def main():
     
     model.class_to_idx = class_to_idx
     
+    logger.info(f"defining checkpoint...")
     checkpoint = {'structure': 'vgg16',
               'classifier': model.classifier,
               'state_dict': model.state_dict(),
@@ -78,7 +97,17 @@ def main():
               'optimizer_state_dict': optimizer.state_dict(),
               'epochs': epochs
               }
-    torch.save(checkpoint, '.saved_models/checkpoint.pth')
+    
+    logger.info(f"saving the model...")
+    torch.save(checkpoint, './saved_models/checkpoint.pth')
 
 if __name__ == '__main__':
-    main()
+    
+    parser = argparse.ArgumentParser(description='Flower classifier')
+    parser.add_argument('data_dir', type=str, help='path to the image directory')
+    parser.add_argument('--hidden_units', type=int, default=4096, help='number of hidden units in the new classifier')
+    parser.add_argument('--learning_rate', type=float, default=0.001, help='learning rate for the classifier')
+    parser.add_argument('--epochs', type=int, default=1, help='number of epochs for training')
+    parser.add_argument('--gpu', action='store_true', help='use GPU for training')
+    
+    args = parser.parse_args()
