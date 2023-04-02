@@ -2,6 +2,9 @@ from torchvision import datasets, transforms, models
 import torch
 import logging
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 def transform_data(dataset, mean, std):
     
     logger.info(f"transforming data...")

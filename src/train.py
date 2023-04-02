@@ -8,6 +8,7 @@ from collections import OrderedDict
 import argparse
 import logging
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def cat_to_name():
@@ -111,3 +112,5 @@ if __name__ == '__main__':
     parser.add_argument('--gpu', action='store_true', help='use GPU for training')
     
     args = parser.parse_args()
+    
+    main()
