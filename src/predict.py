@@ -32,18 +32,23 @@ def load_checkpoints(file):
 
 def main():
     
-    image_path = sys.argv[1]
-    
     input_image = args.input_image
     checkpoint_file = args.checkpoint_file
     category_names_file = args.category_names_file
     topk = args.topk
     use_gpu = args.gpu
+    
+    if use_gpu and torch.cuda.is_available():
+        device = torch.device('cuda')
+        logger.info(f"using GPU for predict...")
+    else:
+        device = torch.device('cpu')
+        logger.info(f"using CPU for predict...")
 
     model, optimizer, epochs = load_checkpoints(checkpoint_file)    
-    model.to("cpu")
-    device = torch.device("cpu")
     
+    # Move the model to the selected device
+    model.to(device)
 
     # Load the image
     image = Image.open(input_image)
