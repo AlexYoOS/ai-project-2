@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 def transform_data(dataset, mean, std):
     
+    # Transform data
     if dataset in ['train']:
         transform = transforms.Compose([
             transforms.RandomResizedCrop(224),
@@ -34,7 +35,6 @@ def prepare_data(directory):
     for i in ['train', 'valid', 'test']:
         
         logger.info(f"loading {i} data...")
-        
         path = directory + '/' + i
 
         dataset_obj = datasets.ImageFolder(path, transform=transform_data(i, mean, std))
@@ -52,31 +52,22 @@ def process_image(image):
         returns an Numpy array
     '''
     
-    # Load the image using PIL
     image = Image.open(image)
-    
-    # Get resize shape
     width, height = image.size
 
-    # Calculate the left, upper, right, and lower pixel coordinates of the center 224x224 portion of the image
     left = (width - 224) / 2
     upper = (height - 224) / 2
     right = left + 224
     lower = upper + 224
     
-    # Crop the image using the calculated pixel coordinates
     cropped_image = image.crop((left, upper, right, lower))
-    
-    # Convert the image to a Numpy array
     np_image = np.array(cropped_image)
     
-    # Normalize the color channels
     means = [0.485, 0.456, 0.406]
     stds = [0.229, 0.224, 0.225]
     np_image = np_image / 255
     np_image = (np_image - means) / stds
     
-    # Reorder dimensions to match expected input of PyTorch model
     np_image = np_image.transpose((2, 0, 1))
     
     return np_image

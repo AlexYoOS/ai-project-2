@@ -48,7 +48,6 @@ def main():
 
     model.classifier = classifier
 
-    # Set the loss function and optimizer
     criterion = torch.nn.NLLLoss()
     optimizer = torch.optim.Adam(model.classifier.parameters(), lr=learning_rate)
     
