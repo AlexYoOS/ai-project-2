@@ -7,3 +7,5 @@ matplotlib
 keras
 tensorflow
 torchvision
+torch
+PIL

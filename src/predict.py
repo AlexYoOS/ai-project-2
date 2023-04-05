@@ -15,7 +15,7 @@ def load_checkpoints(file):
     
     checkpoint = torch.load(file)
     
-    model = models.vgg16(pretrained=True)
+    model = models.checkpoint['structure'](pretrained=True)
     for param in model.parameters():
         param.requires_grad = False
     
@@ -23,7 +23,11 @@ def load_checkpoints(file):
     model.load_state_dict(checkpoint['state_dict'], strict=False)
     model.class_to_idx = checkpoint['class_to_idx']
     
-    optimizer = torch.optim.Adam(model.classifier.parameters(), lr=0.001)
+    if checkpoint['structure'] = 'VGG16':
+        optimizer = torch.optim.Adam(model.classifier.parameters(), lr=0.001)
+    elif checkpoint['structure'] = 'resnet':
+        optimizer = torch.optim.Adam(model.fc.parameters(), lr=0.001)
+    
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     
     epochs = checkpoint['epochs']

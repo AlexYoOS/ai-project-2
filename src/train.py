@@ -41,41 +41,47 @@ def main():
     if args.architecture == 'vgg16':
         logger.info(f"selecting vgg16 model architecture...")
         model = models.vgg16(pretrained=True)
+        input_unit = 25088
         
         for param in model.parameters():
-            param.requires_grad = False  
+            param.requires_grad = False
+            
     elif args.architecture == 'resnet':
         logger.info(f"selecting resnet model architecture...")
         model = models.resnet50(pretrained=True)
+        input_unit = 2048
       
         for param in model.parameters():
             param.requires_grad = True
+            
     else:
         print('Invalid model architecture, exiting...')
         sys.exit(1)
     
     logger.info(f"defining classifier...")
     classifier = nn.Sequential(OrderedDict([
-                            ('fc1', nn.Linear(25088, 4096)),
+                            ('fc1', nn.Linear(input_unit, hidden_units)),
                             ('relu', nn.ReLU()),
                             ('dropout', nn.Dropout(0.5)),
-                            ('fc2', nn.Linear(hidden_units, 102)),
+                            ('fc2', nn.Linear(hidden_units, len(class_to_idx))),
                             ('output', nn.LogSoftmax(dim=1))
                             ]))
+    
+    if args.architecture == 'vgg16':
+        model.classifier = classifier
+        optimizer = torch.optim.Adam(model.classifier.parameters(), lr=learning_rate)
+    elif args.architecture == 'resnet':
+        model.classifier = classifier
+        optimizer = torch.optim.Adam(model.fc.parameters(), lr=learning_rate)
 
-    model.classifier = classifier
+    criterion = torch.nn.NLLLoss()
     
     # Move the model to the selected device
     model.to(device)
-
-    # Set the loss function and optimizer
-    criterion = torch.nn.NLLLoss()
-    optimizer = torch.optim.Adam(model.classifier.parameters(), lr=learning_rate)
     
     logger.info(f"running training...")
     epochs = epochs
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
+
     for epoch in range(epochs):
         logger.info(f"epoch {epoch}...")
         train_loss = 0
