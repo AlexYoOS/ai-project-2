@@ -7,7 +7,6 @@ logger = logging.getLogger(__name__)
 
 def transform_data(dataset, mean, std):
     
-    logger.info(f"transforming data...")
     if dataset in ['train']:
         transform = transforms.Compose([
             transforms.RandomResizedCrop(224),
@@ -34,7 +33,7 @@ def prepare_data(directory):
     
     for i in ['train', 'valid', 'test']:
         
-        logger.info(f"preparing {i} data...")
+        logger.info(f"loading {i} data...")
         
         path = directory + '/' + i
 
@@ -53,7 +52,6 @@ def process_image(image):
         returns an Numpy array
     '''
     
-    logger.info(f"processing image...")
     # Load the image using PIL
     image = Image.open(image)
     

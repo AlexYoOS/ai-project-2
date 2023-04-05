@@ -26,8 +26,8 @@ def main():
     learning_rate = args.learning_rate
     epochs = args.epochs
     use_gpu = args.gpu
-    
-    print(data_dir)
+        
+    logger.info(f"reading images from {data_dir}...")
     
     data_loaders, class_to_idx = utils.prepare_data(data_dir)
     
@@ -88,6 +88,28 @@ def main():
                 "Validation Loss: {:.3f}.. ".format(valid_loss/len(data_loaders['valid_loader'])),
                 "Validation Accuracy: {:.3f}".format(accuracy/len(data_loaders['valid_loader'])))
     
+    logger.info(f"measuring accuracy on test data...")
+    test_loss = 0
+    test_accuracy = 0
+    model.eval()
+
+    with torch.no_grad():
+        model.eval()
+        for images, labels in data_loaders['test_loader']:
+            images, labels = images.to(device), labels.to(device)
+            logps = model(images)
+            loss = criterion(logps, labels)
+            test_loss += loss.item()
+            ps = torch.exp(logps)
+            top_p, top_class = ps.topk(1, dim=1)
+            equals = top_class == labels.view(*top_class.shape)
+            test_accuracy += torch.mean(equals.type(torch.FloatTensor)).item()
+
+    test_loss /= len(data_loaders['test_loader'])
+    test_accuracy /= len(data_loaders['test_loader'])
+    print("Test Loss: {:.3f}.. ".format(test_loss),
+          "Test Accuracy: {:.3f}".format(test_accuracy))
+    
     model.class_to_idx = class_to_idx
     
     logger.info(f"defining checkpoint...")
@@ -104,13 +126,12 @@ def main():
 
 if __name__ == '__main__':
     
-    parser = argparse.ArgumentParser(description='Flower classifier')
+    parser = argparse.ArgumentParser(description='Flower classifier training')
     parser.add_argument('data_dir', type=str, help='path to the image directory')
     parser.add_argument('--hidden_units', type=int, default=4096, help='number of hidden units in the new classifier')
     parser.add_argument('--learning_rate', type=float, default=0.001, help='learning rate for the classifier')
     parser.add_argument('--epochs', type=int, default=1, help='number of epochs for training')
     parser.add_argument('--gpu', action='store_true', help='use GPU for training')
-    
     args = parser.parse_args()
     
     main()
