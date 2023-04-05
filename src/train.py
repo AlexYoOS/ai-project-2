@@ -26,17 +26,34 @@ def main():
     learning_rate = args.learning_rate
     epochs = args.epochs
     use_gpu = args.gpu
-        
+    
+    if use_gpu and torch.cuda.is_available():
+        device = torch.device('cuda')
+        logger.info(f"using GPU for training...")
+    else:
+        device = torch.device('cpu')
+        logger.info(f"using CPU for training...")
+
     logger.info(f"reading images from {data_dir}...")
     
     data_loaders, class_to_idx = utils.prepare_data(data_dir)
     
-    logger.info(f"defining model...")
-    model = models.vgg16(pretrained=True)
-
-    for param in model.parameters():
-        param.requires_grad = False
-
+    if args.architecture == 'vgg16':
+        logger.info(f"selecting vgg16 model architecture...")
+        model = models.vgg16(pretrained=True)
+        
+        for param in model.parameters():
+            param.requires_grad = False  
+    elif args.architecture == 'resnet':
+        logger.info(f"selecting resnet model architecture...")
+        model = models.resnet50(pretrained=True)
+      
+        for param in model.parameters():
+            param.requires_grad = True
+    else:
+        print('Invalid model architecture, exiting...')
+        sys.exit(1)
+    
     logger.info(f"defining classifier...")
     classifier = nn.Sequential(OrderedDict([
                             ('fc1', nn.Linear(25088, 4096)),
@@ -47,7 +64,11 @@ def main():
                             ]))
 
     model.classifier = classifier
+    
+    # Move the model to the selected device
+    model.to(device)
 
+    # Set the loss function and optimizer
     criterion = torch.nn.NLLLoss()
     optimizer = torch.optim.Adam(model.classifier.parameters(), lr=learning_rate)
     
@@ -111,8 +132,8 @@ def main():
     
     model.class_to_idx = class_to_idx
     
-    logger.info(f"defining checkpoint...")
-    checkpoint = {'structure': 'vgg16',
+    logger.info(f"defining {args.architecture} checkpoint...")
+    checkpoint = {'structure': args.architecture,
               'classifier': model.classifier,
               'state_dict': model.state_dict(),
               'class_to_idx': class_to_idx,
@@ -120,13 +141,14 @@ def main():
               'epochs': epochs
               }
     
-    logger.info(f"saving the model...")
+    logger.info(f"saving the {args.architecture} model...")
     torch.save(checkpoint, './saved_models/checkpoint.pth')
 
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='Flower classifier training')
     parser.add_argument('data_dir', type=str, help='path to the image directory')
+    parser.add_argument('--architecture', type=str, default='vgg16', help='model architecture (vgg16 or resnet)')
     parser.add_argument('--hidden_units', type=int, default=4096, help='number of hidden units in the new classifier')
     parser.add_argument('--learning_rate', type=float, default=0.001, help='learning rate for the classifier')
     parser.add_argument('--epochs', type=int, default=1, help='number of epochs for training')

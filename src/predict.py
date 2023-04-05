@@ -1,135 +1,92 @@
 import sys
-import utils
-import json
 import torch
-import torch.nn as nn
 from torchvision import datasets, transforms, models
-from collections import OrderedDict
+from torch.nn.functional import softmax
+import utils
 import argparse
 import logging
+import json
+from PIL import Image
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def cat_to_name():
+def load_checkpoints(file):
     
-    logger.info(f"reading cat_to_name...")
-    with open('cat_to_name.json', 'r') as f:
-        cat_to_name = json.load(f)
+    checkpoint = torch.load(file)
     
-    return cat_to_name
+    model = models.vgg16(pretrained=True)
+    for param in model.parameters():
+        param.requires_grad = False
+    
+    model.classifier = checkpoint['classifier']
+    model.load_state_dict(checkpoint['state_dict'], strict=False)
+    model.class_to_idx = checkpoint['class_to_idx']
+    
+    optimizer = torch.optim.Adam(model.classifier.parameters(), lr=0.001)
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    
+    epochs = checkpoint['epochs']
+    
+    return model, optimizer, epochs
 
 def main():
     
-    data_dir = args.data_dir
-    hidden_units = args.hidden_units
-    learning_rate = args.learning_rate
-    epochs = args.epochs
+    image_path = sys.argv[1]
+    
+    input_image = args.input_image
+    checkpoint_file = args.checkpoint_file
+    category_names_file = args.category_names_file
+    topk = args.topk
     use_gpu = args.gpu
-        
-    logger.info(f"reading images from {data_dir}...")
+
+    model, optimizer, epochs = load_checkpoints(checkpoint_file)    
+    model.to("cpu")
+    device = torch.device("cpu")
     
-    data_loaders, class_to_idx = utils.prepare_data(data_dir)
+
+    # Load the image
+    image = Image.open(input_image)
+
+    # Transform and convert to tensor
     
-    logger.info(f"defining model...")
-    model = models.vgg16(pretrained=True)
-
-    for param in model.parameters():
-        param.requires_grad = False
-
-    logger.info(f"defining classifier...")
-    classifier = nn.Sequential(OrderedDict([
-                            ('fc1', nn.Linear(25088, 4096)),
-                            ('relu', nn.ReLU()),
-                            ('dropout', nn.Dropout(0.5)),
-                            ('fc2', nn.Linear(hidden_units, 102)),
-                            ('output', nn.LogSoftmax(dim=1))
-                            ]))
-
-    model.classifier = classifier
-
-    criterion = torch.nn.NLLLoss()
-    optimizer = torch.optim.Adam(model.classifier.parameters(), lr=learning_rate)
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
     
-    logger.info(f"running training...")
-    epochs = epochs
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-    for epoch in range(epochs):
-        logger.info(f"epoch {epoch}...")
-        train_loss = 0
-        for images, labels in data_loaders['train_loader']:
-            images, labels = images.to(device), labels.to(device)
-            optimizer.zero_grad()
-            logps = model(images)
-            loss = criterion(logps, labels)
-            loss.backward()
-            optimizer.step()
-            train_loss += loss.item()
-        else:
-            valid_loss = 0
-            accuracy = 0
-            with torch.no_grad():
-                model.eval()
-                for images, labels in data_loaders['valid_loader']:
-                    logger.info(f"performing validation for epoch {epoch}...")
-                    images, labels = images.to(device), labels.to(device)
-                    logps = model(images)
-                    loss = criterion(logps, labels)
-                    valid_loss += loss.item()
-                    ps = torch.exp(logps)
-                    top_p, top_class = ps.topk(1, dim=1)
-                    equals = top_class == labels.view(*top_class.shape)
-                    accuracy += torch.mean(equals.type(torch.FloatTensor)).item()
-            model.train()
-            print("Epoch: {}/{}.. ".format(epoch+1, epochs),
-                "Training Loss: {:.3f}.. ".format(train_loss/len(data_loaders['train_loader'])),
-                "Validation Loss: {:.3f}.. ".format(valid_loss/len(data_loaders['valid_loader'])),
-                "Validation Accuracy: {:.3f}".format(accuracy/len(data_loaders['valid_loader'])))
-    
-    logger.info(f"measuring accuracy on test data...")
-    test_loss = 0
-    test_accuracy = 0
-    model.eval()
+    transform = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean, std)
+    ])
+    tensor = transform(image)
 
+    # Use the model to predict the topk classes and their associated probabilities
     with torch.no_grad():
-        model.eval()
-        for images, labels in data_loaders['test_loader']:
-            images, labels = images.to(device), labels.to(device)
-            logps = model(images)
-            loss = criterion(logps, labels)
-            test_loss += loss.item()
-            ps = torch.exp(logps)
-            top_p, top_class = ps.topk(1, dim=1)
-            equals = top_class == labels.view(*top_class.shape)
-            test_accuracy += torch.mean(equals.type(torch.FloatTensor)).item()
+        output = model.forward(tensor.unsqueeze_(0).to(device))
+        probabilities = softmax(output.data, dim=1).to(device)
+        topk_probabilities, topk_classes = probabilities.topk(topk)
+        
+        top_indices = topk_classes.cpu().numpy().tolist()
+        top_indices = top_indices[0]
+        idx_to_class = {x:y for y, x in model.class_to_idx.items()}
+        topk_classes = [idx_to_class[x] for x in top_indices]      
 
-    test_loss /= len(data_loaders['test_loader'])
-    test_accuracy /= len(data_loaders['test_loader'])
-    print("Test Loss: {:.3f}.. ".format(test_loss),
-          "Test Accuracy: {:.3f}".format(test_accuracy))
-    
-    model.class_to_idx = class_to_idx
-    
-    logger.info(f"defining checkpoint...")
-    checkpoint = {'structure': 'vgg16',
-              'classifier': model.classifier,
-              'state_dict': model.state_dict(),
-              'class_to_idx': class_to_idx,
-              'optimizer_state_dict': optimizer.state_dict(),
-              'epochs': epochs
-              }
-    
-    logger.info(f"saving the model...")
-    torch.save(checkpoint, './saved_models/checkpoint.pth')
+        # Convert the class indices to class names
+        with open(category_names_file, 'r') as f:
+            cat_to_name = json.load(f)
+        topk_classes = [cat_to_name[str(idx_to_class[x])] for x in top_indices]
+        
+        print(topk_classes[:topk])
+        print(topk_probabilities[0].tolist()[:topk])
 
 if __name__ == '__main__':
     
-    parser = argparse.ArgumentParser(description='Flower classifier training')
-    parser.add_argument('data_dir', type=str, help='path to the image directory')
-    parser.add_argument('--hidden_units', type=int, default=4096, help='number of hidden units in the new classifier')
-    parser.add_argument('--learning_rate', type=float, default=0.001, help='learning rate for the classifier')
-    parser.add_argument('--epochs', type=int, default=1, help='number of epochs for training')
+    parser = argparse.ArgumentParser(description='Flower classifier predict')
+    parser.add_argument('input_image', type=str, help='path to the image')
+    parser.add_argument('checkpoint_file', type=str, help='path to the checkpoint')
+    parser.add_argument('category_names_file', type=str, help='path to the category name')
+    parser.add_argument('--topk', type=int, default=5, help='number of top k matches')
     parser.add_argument('--gpu', action='store_true', help='use GPU for training')
     args = parser.parse_args()
     

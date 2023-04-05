@@ -6,3 +6,4 @@ torch
 matplotlib
 keras
 tensorflow
+torchvision
