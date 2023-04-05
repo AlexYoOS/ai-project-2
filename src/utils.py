@@ -102,10 +102,3 @@ def imshow(image, ax=None, title=None):
     ax.imshow(image)
     
     return ax
-
-def plot_graphs(probability, classes):
-    
-    result_df = pd.DataFrame({'probability': probability, 'classes': classes})
-    result_df = result_df.sort_values('probability', ascending=False)
-    sns.barplot(x='probability', y='classes', data=result_df, color='blue')
-    plt.show()
