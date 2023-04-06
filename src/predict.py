@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 def load_checkpoints(file):
     
     checkpoint = torch.load(file)
+    print(checkpoint['structure'])
     
     model = models.checkpoint['structure'](pretrained=True)
     for param in model.parameters():
@@ -23,9 +24,9 @@ def load_checkpoints(file):
     model.load_state_dict(checkpoint['state_dict'], strict=False)
     model.class_to_idx = checkpoint['class_to_idx']
     
-    if checkpoint['structure'] = 'VGG16':
+    if checkpoint['structure'] == 'VGG16':
         optimizer = torch.optim.Adam(model.classifier.parameters(), lr=0.001)
-    elif checkpoint['structure'] = 'resnet':
+    elif checkpoint['structure'] == 'resnet':
         optimizer = torch.optim.Adam(model.fc.parameters(), lr=0.001)
     
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
