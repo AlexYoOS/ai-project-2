@@ -14,25 +14,24 @@ logger = logging.getLogger(__name__)
 def load_checkpoints(file):
     
     checkpoint = torch.load(file)
+    structure = checkpoint['structure']
     
-    model = models.checkpoint['structure'](pretrained=True)
+    if checkpoint['structure'].lower() == 'vgg16':
+        model = models.vgg16(pretrained=True)
+    elif checkpoint['structure'].lower() == 'resnet':
+        model = models.resnet50(pretrained=True)
+    else:
+        print("Unsupported structure type: {}".format(structure))
+        return None, None, None
+        
     for param in model.parameters():
         param.requires_grad = False
-    
+            
     model.classifier = checkpoint['classifier']
     model.load_state_dict(checkpoint['state_dict'], strict=False)
     model.class_to_idx = checkpoint['class_to_idx']
     
-    if checkpoint['structure'] = 'VGG16':
-        optimizer = torch.optim.Adam(model.classifier.parameters(), lr=0.001)
-    elif checkpoint['structure'] = 'resnet':
-        optimizer = torch.optim.Adam(model.fc.parameters(), lr=0.001)
-    
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    
-    epochs = checkpoint['epochs']
-    
-    return model, optimizer, epochs
+    return model
 
 def main():
     
@@ -49,7 +48,7 @@ def main():
         device = torch.device('cpu')
         logger.info(f"using CPU for predict...")
 
-    model, optimizer, epochs = load_checkpoints(checkpoint_file)    
+    model = load_checkpoints(checkpoint_file)    
     
     # Move the model to the selected device
     model.to(device)

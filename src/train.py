@@ -147,6 +147,7 @@ def main():
               'epochs': epochs
               }
     
+    
     logger.info(f"saving the {args.architecture} model...")
     torch.save(checkpoint, './saved_models/checkpoint.pth')
 
